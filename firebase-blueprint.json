@@ -1,0 +1,58 @@
+{
+  "entities": {
+    "Participant": {
+      "title": "Participant",
+      "description": "Information about event participants and their results.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Full name of the participant" },
+        "email": { "type": "string", "format": "email", "description": "Registered email address" },
+        "rollNo": { "type": "string", "description": "Academic roll number" },
+        "role": { 
+          "type": "string", 
+          "enum": ["Winner", "Runner up", "Participant"],
+          "description": "Achievement level"
+        },
+        "event": { "type": "string", "description": "Name of the event" },
+        "certificateId": { "type": "string", "description": "Unique certificate identifier" }
+      },
+      "required": ["name", "email", "rollNo", "role", "event"]
+    },
+    "Coordinator": {
+      "title": "Coordinator",
+      "description": "Information about student coordinators.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Full name of the coordinator" },
+        "email": { "type": "string", "format": "email", "description": "Registered email address" },
+        "rollNo": { "type": "string", "description": "Academic roll number" },
+        "coordinatorId": { "type": "string", "description": "Official coordinator verification ID" }
+      },
+      "required": ["name", "email", "rollNo", "coordinatorId"]
+    },
+    "Event": {
+      "title": "Event",
+      "description": "Details of available events.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the event" },
+        "category": { "type": "string", "description": "Category of the event" }
+      },
+      "required": ["name", "category"]
+    }
+  },
+  "firestore": {
+    "/participants/{participantId}": {
+      "schema": "Participant",
+      "description": "Collection of all student participants."
+    },
+    "/coordinators/{coordinatorId}": {
+      "schema": "Coordinator",
+      "description": "Collection of verified student coordinators."
+    },
+    "/events/{eventId}": {
+      "schema": "Event",
+      "description": "Collection of available events."
+    }
+  }
+}

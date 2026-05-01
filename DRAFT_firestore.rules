@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Functions ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Entity Validations ---
+    function isValidParticipant(data) {
+      return data.keys().hasAll(['name', 'email', 'rollNo', 'role', 'event']) &&
+             data.keys().size() >= 5 && data.keys().size() <= 7 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.email is string && data.email.size() <= 100 &&
+             data.rollNo is string && data.rollNo.size() <= 20 &&
+             data.role in ['Winner', 'Runner up', 'Participant'] &&
+             data.event is string && data.event.size() <= 100;
+    }
+
+    function isValidCoordinator(data) {
+      return data.keys().hasAll(['name', 'email', 'rollNo', 'coordinatorId']) &&
+             data.keys().size() >= 4 && data.keys().size() <= 5 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.email is string && data.email.size() <= 100 &&
+             data.rollNo is string && data.rollNo.size() <= 20 &&
+             data.coordinatorId is string && data.coordinatorId.size() <= 20;
+    }
+
+    // --- Collection Rules ---
+
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Admins managed via console or specialized tool
+    }
+
+    match /participants/{participantId} {
+      allow get: if isValidId(participantId) && (isAdmin() || (isSignedIn() && existing().email == request.auth.token.email));
+      
+      // Scoped list query: Only allow users to query for their own email + rollNo
+      allow list: if isAdmin() || (
+        isSignedIn() && 
+        resource.data.email == request.auth.token.email &&
+        resource.data.rollNo == request.query.rollNo // Implicit enforcement through query filters
+      );
+
+      allow create: if isAdmin() && isValidParticipant(incoming());
+      
+      allow update: if isAdmin() && isValidParticipant(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'event', 'certificateId'])
+      );
+      
+      allow delete: if isAdmin();
+    }
+
+    match /coordinators/{coordinatorId} {
+      allow get: if isValidId(coordinatorId) && (isAdmin() || (isSignedIn() && existing().email == request.auth.token.email));
+      
+      allow list: if isAdmin() || (
+        isSignedIn() && 
+        resource.data.email == request.auth.token.email
+      );
+
+      allow create: if isAdmin() && isValidCoordinator(incoming());
+      
+      allow update: if isAdmin() && isValidCoordinator(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'coordinatorId'])
+      );
+      
+      allow delete: if isAdmin();
+    }
+  }
+}
